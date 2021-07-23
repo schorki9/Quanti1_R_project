@@ -27,7 +27,7 @@ allbus <- read_sav("./data/ALLBUS2018/ZA5270_v2-0-0.sav")
 
 ```
 
-Häufigkeitsverteilung AV: Internal/External Efficacy
+Häufigkeitsverteilung: AV: Internal/External Efficacy
 
 ## pe01 "POLITIKER KUEMMERN S.NICHT UM M.GEDANKEN" 1: Stimme voll und ganz zu bis 4: stimme überhaupt nicht zu 
 
