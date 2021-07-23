@@ -1,5 +1,5 @@
 ### AV Efficacy - Index
-
+##Test
 # Annähernd normalverteilt?-jawoll
 hist (allbus$pe01)
 hist (allbus$pe05)
