@@ -1,0 +1,193 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+library(haven)
+library(foreign)
+library(car)
+library(ggplot2)
+library(dplyr)
+
+
+
+```
+
+### Loading Data ###
+
+```{r}
+
+getwd()
+allbus <- read_sav("./data/ALLBUS2018/ZA5270_v2-0-0.sav")
+
+```
+
+Häufigkeitsverteilung AV: Internal/External Efficacy
+
+## pe01 "POLITIKER KUEMMERN S.NICHT UM M.GEDANKEN" 1: Stimme voll und ganz zu bis 4: stimme überhaupt nicht zu 
+
+## pe05 "POLITIKER VERTRETEN INTERESSEN D. BEV." 1: stimme voll und ganz zu bis 4: Stimme überhaupt nicht zu 
+
+```{r}
+
+#neuen Datensatz mit den Variablen erstellen
+
+exefficacyVariables<-c("pe01", "pe05", "land")
+
+df <- allbus[exefficacyVariables]
+
+## Verteilung anschauen: Wie viele NAs und falsche Werte 
+
+
+
+
+#TODO Berlin Var
+
+str(df$land)
+
+df$land<- as.character(df$land) 
+
+
+
+
+#Recodieren zu Faktor, Berlin West und Ost als Berlin recodiert
+
+#######  PROBLEM Codebook Zahlen stimmen nicht mit gültigen Fällen im Datensatz überein
+
+df$land_fac <- car::recode(df$land,
+                      "10 = 'Schleswig-Holstein';
+                      20 = 'Hamburg';
+                      30 = 'Niedersachsen';
+                      40 ='Bremen';
+                      50 = 'Nordrhein-Westfalen';
+                      60 = 'Hessen';
+                      70 = 'Rheinland-Pfalz';
+                      80 = 'Baden-Württemberg';
+                      90 = 'Bayern';
+                      100 = 'Saarland';
+                      c(111,112) = 'Berlin';
+                      120 = 'Brandenburg';
+                      130 = 'Mecklenburg-Vorpommern';
+                      140 = 'Sachsen';
+                      150 = 'Sachsen-Anhalt';
+                      160 = 'Thueringen'",
+                      as.factor = TRUE)
+
+
+
+df$land<- as.integer(df$land) 
+
+##ggplot graphics
+
+
+group
+
+
+
+
+
+ggplot(df, aes(x = pe05))+
+  geom_histogram()
+
+
+
+
+
+
+
+# table(df$pe01, useNA = "always")
+# 
+# table(df$pe05, useNA = "always")
+# 
+# sum(df$pe01, na.rm = T)
+# 
+# table(df$pe01)
+# 
+# ## median(df$pe01, na.rm = T)
+# 
+# ## mean(df$pe01, na.rm = T)
+# 
+# 
+# 
+# 
+# table(allbus$pe01, useNA = "always")
+# 
+# mean(allbus$pe01, na.rm = T)
+# 
+# 
+# 
+# names(allbus)
+
+
+
+
+m<-ggplot(df, aes(x = land_fac, fill = pe01))+
+  geom_bar(position = "dodge")
+
+
+
+
+
+
+
+```
+
+##  ggplot Häufigkeitsverteilung nach Bundesländern
+```{r}
+
+
+
+#ggplot(df, aes(x=land_fac, fill=pe01)) + geom_bar(position="dodge") + scale_x_discrete("Bundesland") +
+#scale_fill_manual("External Efficacy", values=c("lightblue", "pink"))
+
+
+
+ggplot(df, aes(x = pe01))+
+         geom_bar()+
+         facet_wrap(~land_fac)
+
+ggplot(df, aes(x = pe05))+
+         geom_bar()+
+         facet_wrap(~land_fac)
+
+
+```
+
+### ggplot Mittelwerte
+```{r}
+
+#Daten gruppieren nach Bundesländern und Mittelwerte berechnen
+
+by_land <- df %>% group_by(land_fac) %>% summarise(pe01 = mean(pe01, na.rm = "TRUE"),
+                                                    pe05 = mean(pe05, na.rm = "TRUE"))
+
+by_land
+
+
+## Graphic fpr means
+
+ggplot(by_land, aes(x = land_fac, y = pe05))+
+         geom_bar(stat="identity")+
+   coord_flip()
+
+  
+        
+
+
+
+###TODO Index bilden gemittelt , Bei Mittelwert von 1 bis 4 Skala, Beschriftung von Grafiken anpassen, 
+```
+
+
+
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
