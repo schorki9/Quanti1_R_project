@@ -97,6 +97,10 @@ newdata <- merge(allbus, makrodata, by="land_fac", na.rm = "TRUE")
 #Jede Person aus einem Bundesland hat jetzt die Werte des Bundeslandes auf der entsprechenden Makrovariable
 newdata$Verfahren_gesamt
 
+#unemployed variable kodieren
+newdata$arbeit <- recode(newdata$work, "1:3=1; 4=2")
+#1: erwerbstÃ¤tig 2: nicht erwerbstÃ¤tig
+
 #subset erstellen
 regData <- subset(newdata, select = c(effex02, effint02, Verfahren_gesamt, age, sex, de15,land, eseg, pa01, ps03, rp01))
 regData <- na.omit(regData)
@@ -129,9 +133,9 @@ regData2 <- na.omit(regData2)
 
 
 #nullmodell
-#für externe efficacy
+#f?r externe efficacy
 m0exeffv <- lme4::lmer(effex02 ~ 1 + (1|land), data = regData)
-#für interne efficacy
+#f?r interne efficacy
 m0inteffv <- lme4::lmer(effint02 ~ 1 + (1|land), data = regData)
 jtools::summ(m0exeffv)
 #icc 0,03
