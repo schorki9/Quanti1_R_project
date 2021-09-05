@@ -102,7 +102,7 @@ newdata$arbeit <- recode(newdata$work, "1:3=1; 4=2")
 #1: erwerbstätig 2: nicht erwerbstätig
 
 #subset erstellen
-regData <- subset(newdata, select = c(effex02, effint02, Verfahren_gesamt, age, sex, de15,land, eseg, pa01, ps03, rp01))
+regData <- subset(newdata, select = c(effex02, effint02, Verfahren_gesamt, age, sex, de15,land, arbeit, pa01, ps03, rp01))
 regData <- na.omit(regData)
 
 #Mittelwertzentr der metr variablen
@@ -118,7 +118,7 @@ regData$kirchgang.mw <- regData$rp01 - mean(regData$rp01)
 class(newdata$eseg)
 class(newdata$sex)
 class(newdata$de15)
-regData$unempl <- as.factor(regData$eseg)
+regData$unempl <- as.factor(regData$arbeit)
 regData$geschlecht <- as.factor(regData$sex)
 regData$hochschulabschluss <- as.factor(regData$de15)
 
