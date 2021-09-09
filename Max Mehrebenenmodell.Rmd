@@ -1,0 +1,358 @@
+---
+title: "Max Mehrebenenmodell"
+author: "Max Richter"
+date: "29 8 2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+
+if (!require("pacman")) install.packages("pacman") 
+pacman::p_load(foreign, psych, ggplot2, haven, car, dplyr, multilevel, lme4, jtools, stargazer, performance, e1071, psych) # Ersetzt die Einzelbefehle "install" und "library()"
+
+#Packages werden falls noch nicht vorhanden installiert und dann geladen
+	
+
+
+
+#Needed libraries
+# library(foreign)
+# library(psych)
+# library(ggplot2)
+# library(haven)
+# library(car)
+# library(dplyr)
+# library(multilevel)
+# library(lme4)
+# library(jtools)
+# library(stargazer)
+# library(e1071) #Für Univariate Analyse
+```
+
+
+```{r Datenimport}
+#Dokument bitte immer mit auskommentierten Pfaden speichern und hochladen
+
+# ### Soeren ### # allbus <-
+# read.spss("/Users/soere/Documents/DirekteDemokratie/ZA5270_v2-0-0.sav", #
+# use.value.labels = FALSE, #                    to.data.frame = TRUE, #
+# reencode = TRUE)
+# 
+# # makrodata <-
+# read.csv("/Users/soere/Documents/DirekteDemokratie/BB_BE_Kommulativ_1956bis2015.csv",
+# sep = ";" )
+
+### Max ###
+
+
+allbus <- read.spss("D:/RProjekte/Forschungsarbeit_Quanti1/Quanti1_R_project/data/ALLBUS2018/ZA5270_v2-0-0.sav/ZA5270_v2-0-0.sav",
+                    use.value.labels = FALSE,
+                    to.data.frame = TRUE,
+                    reencode = TRUE)
+
+ makrodata <- read.csv("D:/RProjekte/Forschungsarbeit_Quanti1/Quanti1_R_project/data/AggregatDaten/BB_BE_Kommulativ_1956bis2015.csv", sep = ";", dec = "." )
+
+ makrodata2 <- read.csv("D:/RProjekte/Forschungsarbeit_Quanti1/Quanti1_R_project/data/AggregatDaten/Anwendungshaeufigkeit_BB.csv", sep = ";", dec = "," )
+
+
+
+```
+
+
+
+#### Daten/Variablen checken und Recodieren
+
+```{r DataCleanUp, echo=FALSE}
+### Makrodaten in den Allbus Datensatz integrieren 
+### MERGING Datensätze zusammenführen anhand der Bundesländer
+
+
+# Berlin in Allbus ist in Ost und West unterteilt: 
+# Rekodierung zu einem Berlin :
+
+allbus$land<- as.character(allbus$land)
+allbus$land_fac <- car::recode(allbus$land,
+                               "10 = 'Schleswig-Holstein';
+                      20 = 'Hamburg';
+                      30 = 'Niedersachsen';
+                      40 ='Bremen';
+                      50 = 'Nordrhein-Westfalen';
+                      60 = 'Hessen';
+                      70 = 'Rheinland-Pfalz';
+                      80 = 'Baden-Württemberg';
+                      90 = 'Bayern';
+                      100 = 'Saarland';
+                      c(111,112) = 'Berlin';
+                      120 = 'Brandenburg';
+                      130 = 'Mecklenburg-Vorpommern';
+                      140 = 'Sachsen';
+                      150 = 'Sachsen-Anhalt';
+                      160 = 'Thüringen'",
+                               as.factor = TRUE)
+
+#TODO Müssen wir die Levels anders anordnen?
+
+
+# "work"-Variable umkodieren zur Dummy Variable "arbeit": Berufstätig = 1 Arbeitslos = 2
+
+allbus$arbeit <- car::recode(allbus$work, "1:3=1; 4=2") 
+allbus$arbeit_fac <- car::recode(allbus$arbeit, "1 = 'erwärbstätig'; 2 ='arbeitslos'",  as.factor = TRUE) #Faktorvaribale erzeugen
+
+## !! Andere Zusammensetzung der Ausprägungen wie im Codebuch !! ##
+
+
+allbus$arbeit_fac <- relevel(allbus$arbeit_fac, ref ="erwärbstätig")# Referenz ist die Anzahl der Erwärbstätigen
+
+levels(allbus$arbeit_fac)
+table(allbus$arbeit_fac)
+str(allbus$arbeit_fac)
+
+
+
+# Allbus mit Aggregatdaten mergen
+allbus <- merge(allbus, makrodata, by="land_fac", na.rm = "TRUE")
+allbus <- merge(allbus, makrodata2, by="land_fac", na.rm = "TRUE")
+
+
+
+
+
+
+
+############################# Indizes vorbereiten und erstellen ###################
+
+# pe05 und pe02 drehen Output: Zustimmung (4) bis Keine Zustimmung (1)
+table(allbus$pe05)
+allbus$pe05.gedreht <- (allbus$pe05)*(-1) + 5 
+table(allbus$pe05.gedreht)
+
+
+table(allbus$pe02)
+allbus$pe02.gedreht <- (allbus$pe02)*(-1) + 5 
+table(allbus$pe02.gedreht)
+
+
+
+
+###### TODO Wollen wir Missings bereinigen? 
+
+# ### Missings zu Mittelwert umkodieren
+# allbus[(is.na(allbus$pe01)), "pe01"] <- (mean(allbus$pe01, na.rm = T))
+# sum(is.na(allbus$pe01)) # Test, ob NAs weg sind 
+# 
+# 
+# allbus[(is.na(allbus$pe05.gedreht)), "pe05.gedreht"] <- (mean(allbus$pe05.gedreht, na.rm = T))
+# sum(is.na(allbus$pe05.gedreht))
+# 
+# 
+# allbus[(is.na(allbus$pe02.gedreht)), "pe02.gedreht"] <- (mean(allbus$pe02.gedreht, na.rm = T))
+# sum(is.na(allbus$pe02.gedreht))
+# 
+# allbus[(is.na(allbus$pe04)), "pe04"] <- (mean(allbus$pe04, na.rm = T))
+# sum(is.na(allbus$pe04))
+# 
+# allbus[(is.na(allbus$pe06)), "pe06"] <- (mean(allbus$pe06, na.rm = T))
+# sum(is.na(allbus$pe06))
+```
+
+
+```{r Indizes erstellen, echo=FALSE}
+# Indizes bilden (additiv)
+
+
+## External Efficacy
+allbus$effex01 <- rowMeans((allbus[, c("pe01", "pe05.gedreht")]), na.rm=TRUE)
+#rowMeans gibt NaN zurück wenn beide/alle Variablen NA hatten daher aus NaN's NA's machen
+sum(is.nan(allbus$effex01)) #gibt Anzahl der NaN's : 26
+
+allbus$effex01[is.nan(allbus$effex01)] <- NA #aus NaN's NA's machen um sie später zu streichen mit na.omit
+table(allbus$effex01)
+
+
+allbus$effint01 <- rowMeans(allbus[,c("pe02.gedreht", "pe04", "pe06")], na.rm=T)
+sum(is.nan(allbus$effint01)) #effint hat keine NaN's
+
+allbus$effint01<- round(allbus$effint01, digits = 2)#Runden auf 2 Nachkommastellen
+
+
+
+
+# #Index mittelwertzentrieren OHNE z-Transformation
+allbus$effex01.mwz <- scale(allbus$effex01, center = T, scale = F)
+
+#Überprüfung
+#summary(allbus$effex01.mwz)
+
+allbus$effint01.mwz <- scale(allbus$effint01, center = T, scale = F)
+
+#table(allbus$effint01.mwz,useNA = "always")
+#summary(allbus$effint01.mwz)
+
+
+
+
+#Mittelwertzentr der metr variablen
+
+#allbus$Verfahren_gesamt.mw <- allbus$Verfahren_gesamt - mean(allbus$Verfahren_gesamt)
+allbus$age.mw <- scale(allbus$age, center = T, scale = F)
+allbus$linksrechts.mw <- scale(allbus$pa01, center = T, scale = F )
+allbus$dzufr.mw <- scale(allbus$ps03, center = T, scale = F)
+allbus$kirchgang.mw <- scale(allbus$rp01, center = T, scale = F)
+allbus$zeitabstand_1956.mw <- scale(allbus$zeitabstand_1956, center = T, scale = F)
+allbus$BIP_Mill_Euro.mw <- scale(allbus$BIP_Mill_Euro, center = T, scale = F)
+
+
+#Dummy Variablen
+
+allbus$geschlecht <- as.factor(allbus$sex)
+allbus$hochschulabschluss <- as.factor(allbus$de15)
+```
+
+
+
+
+
+Legende: 
+
+m0 : Nullmodell, ICC wichtigste Kennzahl
+m01: Fixed Slopes, nur Individualdaten
+m02: Fixed Slopes, Individual + Aggregatvariablen
+
+
+```{r Nullmodell}
+###
+#
+
+
+regData <- allbus[, c("effint01.mwz", "land_fac", "effex01.mwz", "age.mw", "linksrechts.mw", "dzufr.mw", "kirchgang.mw", "zeitabstand_1956.mw", "arbeit_fac", "geschlecht", "hochschulabschluss")]
+
+regData <- na.omit(regData)#Alle NAs entfernen 
+
+m0int <- lme4::lmer(effint01.mwz ~ 1 + (1|land_fac), data = regData)
+performance::icc(m0int)
+#jtools::summ(m0int) # Rechnung des Modells
+#ICC 0,009
+
+m0ex <- lme4::lmer(effex01.mwz ~ 1 + (1|land_fac), data = regData)
+performance::icc(m0ex)
+#jtools::summ(m0ex) # Rechnung des Modells
+#ICC 0,019
+```
+
+#Start der Mehrebenenanalysen
+
+## Fixed Slopes Ebene 1
+
+```{r Fixed Slopes Ebene 1}
+
+#1 fixed slopes
+#random intercept fixed slopes + level 1
+m01ex <- lme4::lmer(effex01.mwz ~ 1 + age.mw + arbeit_fac + geschlecht
+                      +hochschulabschluss + linksrechts.mw + dzufr.mw + kirchgang.mw +(1|land_fac), data = regData)
+#jtools::summ(m01.ex)
+
+m01int <- lme4::lmer(effint01.mwz ~ 1 + age.mw + arbeit_fac + geschlecht
+                      +hochschulabschluss + linksrechts.mw + dzufr.mw + kirchgang.mw +(1|land_fac), data = regData)
+#jtools::summ(m01.int)
+```
+
+## Fixed Slopes Ebene 1 + 2
+
+```{r Fixed Slopes Ebene 1 + 2}
+#2 fixed slopes mit makrovariablen
+#Random Intercept und fixed slopes + Level 1 Pr?diktoren + Level 2 Pr?diktoren 
+m02ex <- lme4::lmer(effex01.mwz ~ 1 + age.mw + arbeit_fac + geschlecht
+                       +hochschulabschluss + linksrechts.mw + dzufr.mw + kirchgang.mw +zeitabstand_1956.mw +(1|land_fac), data = regData)
+#jtools::summ(m02ex)
+
+m02int <- lme4::lmer(effint01.mwz ~ 1 + age.mw + arbeit_fac + geschlecht
+                       +hochschulabschluss + linksrechts.mw + dzufr.mw + kirchgang.mw +zeitabstand_1956.mw +(1|land_fac), data = regData)
+#jtools::summ(m02int)
+```
+
+## Random Slopes Variationen External Efficacy
+
+```{r Random Slopes External Efficacy}
+#3 random slopes External Efficacy
+
+#random slopes: Alter
+m03ex.age <- lme4::lmer(effex01.mwz ~ 1 + age.mw + arbeit_fac + geschlecht
+                           +hochschulabschluss + linksrechts.mw + dzufr.mw + kirchgang.mw +zeitabstand_1956.mw +(1 + age.mw|land_fac), data = regData)
+#jtools::summ(m03ex.age)
+
+
+#random slopes: Arbeit 
+m03ex.work <- lme4::lmer(effex01.mwz ~ 1 + age.mw + arbeit_fac + geschlecht
+                            +hochschulabschluss + linksrechts.mw + dzufr.mw + kirchgang.mw +zeitabstand_1956.mw +(1 + arbeit_fac|land_fac), data = regData)
+#jtools::summ(m03ex.work)
+
+
+
+
+#random slopes: Geschlecht
+m03ex.geschlecht <- lme4::lmer(effex01.mwz ~ 1 + age.mw 
+                              + arbeit_fac 
+                              + geschlecht
+                              +hochschulabschluss 
+                              + linksrechts.mw 
+                              + dzufr.mw + kirchgang.mw 
+                              +zeitabstand_1956.mw 
+                              +(1 + geschlecht|land_fac),
+                              data = regData)
+#jtools::summ(m03ex.geschlecht)
+
+
+
+
+
+#randomslopes: Hochschulabschluss
+m03ex.abschluss <- lme4::lmer(effex01.mwz ~ 1 + age.mw + arbeit_fac + geschlecht
+                            +hochschulabschluss + linksrechts.mw + dzufr.mw + kirchgang.mw +zeitabstand_1956.mw +(1 + hochschulabschluss|land_fac), data = regData)
+#jtools::summ(m03ex.abschluss)
+
+
+
+
+#optional:
+#4 random slopes und interaktionseffekte
+#Random Intercept random slopes + Level 1 + Level 2 +interaktionseffekte
+#random slopes de15 +interaktionseffekt
+#rirsl1l2de15V2 <- lme4::lmer(effex01.mw ~ 1 + age.mw + arbeit_fac + geschlecht
+                            # +hochschulabschluss + linksrechts.mw + dzufr.mw + kirchgang.mw +zeitabstand_1956.mw + #zeitabstand_1956.mw*de15 +(1 + sex|land), data = regData)
+#jtools::summ(rirsl1l2de15V2)
+```
+
+
+```{r Random Slopes Internal Efficacy}
+#3 random slopes
+#random slopes alter
+m03int.age <- lme4::lmer(effint01.mwz ~ 1 + age.mw + arbeit_fac + geschlecht
+                             +hochschulabschluss + linksrechts.mw + dzufr.mw + kirchgang.mw +zeitabstand_1956.mw +(1 + age.mw|land_fac), data = regData)
+#jtools::summ(m03int.age)
+#random slopes eseg
+m03int.work <- lme4::lmer(effint01.mwz ~ 1 + age.mw + arbeit_fac + geschlecht
+                              +hochschulabschluss + linksrechts.mw + dzufr.mw + kirchgang.mw +zeitabstand_1956.mw +(1 + arbeit_fac|land_fac), data = regData)
+#jtools::summ(m03int.work)
+#random slopes sex
+m03int.sex <- lme4::lmer(effint01.mwz ~ 1 + age.mw + arbeit_fac + geschlecht
+                             +hochschulabschluss + linksrechts.mw + dzufr.mw + kirchgang.mw +zeitabstand_1956.mw +(1 + geschlecht|land_fac), data = regData)
+#jtools::summ(m03int.sex)
+#random slopes Hochschulabschluss
+m03int.abschluss <- lme4::lmer(effint01.mwz ~ 1 + age.mw + arbeit_fac + geschlecht
+                              +hochschulabschluss + linksrechts.mw + dzufr.mw + kirchgang.mw +zeitabstand_1956.mw +(1 + hochschulabschluss|land_fac), data = regData)
+#jtools::summ(m03int.abschluss)
+
+
+#optional:
+#4 random slopes und interaktionseffekte
+#Random Intercept random slopes + Level 1 + Level 2 +interaktionseffekte
+#random slopes de15 +interaktionseffekt
+#eirirsl1l2de15V2 <- lme4::lmer(effint02 ~ 1 + age.mw + arbeit_fac + geschlecht
+#                               +hochschulabschluss + linksrechts.mw + dzufr.mw + kirchgang.mw +zeitabstand_1956.mw + zeitabstand_1956.mw*de15 +(1 + sex|land), data = regData)
+#jtools::summ(eirirsl1l2de15V2)
+
+
+
+```
